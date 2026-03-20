@@ -1,0 +1,205 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FinTrack Pro — Full Local Development Stack
+# Run: docker-compose up -d
+# Then: cd frontend && npm install && npm start
+# Swagger UI: http://localhost:8081/swagger-ui.html
+# Angular:    http://localhost:4200
+# H2 Console: http://localhost:8081/h2-console
+# Kafka UI:   http://localhost:8090
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  fintrack-net:
+    driver: bridge
+
+volumes:
+  kafka-data:
+  redis-data:
+  zookeeper-data:
+
+services:
+
+  # ── Zookeeper (Kafka dependency) ────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: fintrack-zookeeper
+    networks: [fintrack-net]
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Kafka ────────────────────────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: fintrack-kafka
+    networks: [fintrack-net]
+    ports:
+      - "9092:9092"     # External access for Java services running locally
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_LOG_RETENTION_HOURS: 24
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ── Kafka UI (dev tool) ──────────────────────────────────────────────────
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: fintrack-kafka-ui
+    networks: [fintrack-net]
+    ports:
+      - "8090:8080"
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+
+  # ── Redis ────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: fintrack-redis
+    networks: [fintrack-net]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Transaction Service ──────────────────────────────────────────────────
+  transaction-service:
+    build:
+      context: ../backend/transaction-service
+      dockerfile: ../../infra/docker/Dockerfile.java
+    container_name: fintrack-transaction-service
+    networks: [fintrack-net]
+    ports:
+      - "8081:8081"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_DATA_REDIS_HOST: redis
+      SERVER_PORT: 8081
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # ── AI Query Service ─────────────────────────────────────────────────────
+  ai-query-service:
+    build:
+      context: ../backend/ai-query-service
+      dockerfile: ../../infra/docker/Dockerfile.java
+    container_name: fintrack-ai-service
+    networks: [fintrack-net]
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SERVER_PORT: 8082
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-demo-replace-me}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/api/ai/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+
+  # ── WebSocket Relay ──────────────────────────────────────────────────────
+  websocket-relay:
+    build:
+      context: ../backend/websocket-relay
+      dockerfile: ../../infra/docker/Dockerfile.java
+    container_name: fintrack-ws-relay
+    networks: [fintrack-net]
+    ports:
+      - "8083:8083"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SERVER_PORT: 8083
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+
+  # ── Report Service ───────────────────────────────────────────────────────
+  report-service:
+    build:
+      context: ../backend/report-service
+      dockerfile: ../../infra/docker/Dockerfile.java
+    container_name: fintrack-report-service
+    networks: [fintrack-net]
+    ports:
+      - "8084:8084"
+    environment:
+      SERVER_PORT: 8084
+      APP_TRANSACTION_SERVICE_URL: http://transaction-service:8081
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+
+  # ── Prometheus ───────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: fintrack-prometheus
+    networks: [fintrack-net]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+
+  # ── Grafana ──────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: fintrack-grafana
+    networks: [fintrack-net]
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: fintrack123
+      GF_USERS_ALLOW_SIGN_UP: 'false'

@@ -1,0 +1,72 @@
+# Default values for transaction-service Helm chart
+# Override with: helm install --set key=value
+
+replicaCount: 3
+
+image:
+  repository: fintrack/transaction-service
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8081
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 768Mi
+  limits:
+    cpu: 1200m
+    memory: 1536Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 16
+  targetCPUUtilizationPercentage: 70
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8081
+  initialDelaySeconds: 40
+  periodSeconds: 15
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8081
+  initialDelaySeconds: 25
+  periodSeconds: 10
+
+configMap:
+  SPRING_PROFILES_ACTIVE: "aws"
+  RULES_AML_THRESHOLD: "10000"
+  RULES_VELOCITY_MAX_PER_HOUR: "20"
+  RULES_RISK_FLAG_THRESHOLD: "50"
+  SERVER_PORT: "8081"
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/path: "/actuator/prometheus"
+  prometheus.io/port: "8081"
+
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [transaction-service]
+          topologyKey: kubernetes.io/hostname

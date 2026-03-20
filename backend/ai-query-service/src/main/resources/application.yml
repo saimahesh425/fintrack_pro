@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: ai-query-service
+  webflux:
+    base-path: /
+
+server:
+  port: 8082
+
+ai:
+  openai:
+    enabled: true
+    api-key: ${OPENAI_API_KEY:sk-demo-replace-with-real-key}
+    base-url: https://api.openai.com/v1
+    model: gpt-4o-mini   # Cost-effective for compliance queries
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      openai:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+  timelimiter:
+    instances:
+      openai:
+        timeout-duration: 30s
+
+app:
+  cors:
+    allowed-origins: "http://localhost:4200"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.fintrack: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: aws
+ai:
+  openai:
+    api-key: ${OPENAI_API_KEY}
+app:
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS}

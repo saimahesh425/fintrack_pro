@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'transaction-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['transaction-service:8081']
+
+  - job_name: 'ai-query-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['ai-query-service:8082']
+
+  - job_name: 'websocket-relay'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['websocket-relay:8083']
+
+  - job_name: 'report-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['report-service:8084']

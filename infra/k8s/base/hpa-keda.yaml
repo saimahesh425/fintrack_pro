@@ -1,0 +1,143 @@
+# ── HPA — transaction-service ────────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: transaction-service-hpa
+  namespace: fintrack
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: transaction-service
+  minReplicas: 3
+  maxReplicas: 16
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0       # Scale up immediately
+      policies:
+        - type: Pods
+          value: 4
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 300     # Wait 5 min before scaling down
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+
+---
+# ── HPA — ai-query-service ────────────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ai-query-service-hpa
+  namespace: fintrack
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ai-query-service
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60           # AI service is latency-sensitive — scale earlier
+
+---
+# ── KEDA — Kafka consumer autoscaling (scales on consumer lag) ────────────────
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: transaction-kafka-consumer-scaler
+  namespace: fintrack
+spec:
+  scaleTargetRef:
+    name: transaction-service
+  minReplicaCount: 3
+  maxReplicaCount: 16
+  cooldownPeriod: 300
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: "<KAFKA_BOOTSTRAP_SERVERS>"
+        consumerGroup: transaction-processor
+        topic: transaction-events
+        lagThreshold: "5000"
+        offsetResetPolicy: latest
+    - type: kafka
+      metadata:
+        bootstrapServers: "<KAFKA_BOOTSTRAP_SERVERS>"
+        consumerGroup: ai-processor
+        topic: ai-enrichment-results
+        lagThreshold: "2000"
+
+---
+# ── CronJob — Pre-scale before market open (6:45 AM ET = 11:45 UTC Mon-Fri) ──
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: market-open-prescale
+  namespace: fintrack
+spec:
+  schedule: "45 11 * * 1-5"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: fintrack-scaler
+          containers:
+            - name: kubectl
+              image: bitnami/kubectl:latest
+              command:
+                - kubectl
+                - patch
+                - hpa/transaction-service-hpa
+                - -n
+                - fintrack
+                - --patch
+                - '{"spec":{"minReplicas":8}}'
+          restartPolicy: OnFailure
+
+---
+# ── CronJob — Scale back after market open rush (9:00 AM ET = 14:00 UTC) ─────
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: market-open-scaledown
+  namespace: fintrack
+spec:
+  schedule: "0 14 * * 1-5"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: fintrack-scaler
+          containers:
+            - name: kubectl
+              image: bitnami/kubectl:latest
+              command:
+                - kubectl
+                - patch
+                - hpa/transaction-service-hpa
+                - -n
+                - fintrack
+                - --patch
+                - '{"spec":{"minReplicas":3}}'
+          restartPolicy: OnFailure

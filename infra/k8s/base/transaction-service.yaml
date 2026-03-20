@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transaction-service
+  namespace: fintrack
+  labels:
+    app: transaction-service
+    version: "1.0.0"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: transaction-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0          # Zero downtime — never remove old pod before new is ready
+  template:
+    metadata:
+      labels:
+        app: transaction-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path:   "/actuator/prometheus"
+        prometheus.io/port:   "8081"
+    spec:
+      serviceAccountName: fintrack-service-account
+
+      # Ensure pods spread across availability zones
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: transaction-service
+
+      containers:
+        - name: transaction-service
+          image: <ECR_REGISTRY>/transaction-service:latest   # Replaced by CI/CD
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8081
+
+          # Resource requests and limits
+          resources:
+            requests:
+              cpu:    "500m"
+              memory: "768Mi"
+            limits:
+              cpu:    "1200m"
+              memory: "1536Mi"
+
+          # Environment from ConfigMap and Secret
+          envFrom:
+            - configMapRef:
+                name: transaction-service-config
+            - secretRef:
+                name: fintrack-secrets
+
+          # Liveness: restart if stuck (JVM deadlock etc.)
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8081
+            initialDelaySeconds: 40
+            periodSeconds: 15
+            failureThreshold: 3
+
+          # Readiness: only route traffic when Spring context + DB + Kafka are warm
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8081
+            initialDelaySeconds: 25
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # Graceful shutdown — allow in-flight requests to complete
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 10"]
+
+      terminationGracePeriodSeconds: 60
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: transaction-service
+  namespace: fintrack
+spec:
+  selector:
+    app: transaction-service
+  ports:
+    - port: 80
+      targetPort: 8081
+  type: ClusterIP
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: transaction-service-pdb
+  namespace: fintrack
+spec:
+  minAvailable: 2            # Always keep 2 pods up during node maintenance
+  selector:
+    matchLabels:
+      app: transaction-service

@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: websocket-relay
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: websocket-relay
+      auto-offset-reset: latest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        spring.json.trusted.packages: "com.fintrack.*"
+
+server:
+  port: 8083
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
+logging:
+  level:
+    com.fintrack: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: aws
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
