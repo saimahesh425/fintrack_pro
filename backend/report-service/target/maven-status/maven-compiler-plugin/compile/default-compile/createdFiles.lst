@@ -1,0 +1,7 @@
+com\fintrack\report\service\ReportService$ReportJob$ReportJobBuilder.class
+com\fintrack\report\service\ReportService.class
+com\fintrack\report\controller\ReportController.class
+com\fintrack\report\service\ReportService$ReportRequest.class
+com\fintrack\report\service\ReportService$JobStatus.class
+com\fintrack\report\ReportServiceApplication.class
+com\fintrack\report\service\ReportService$ReportJob.class

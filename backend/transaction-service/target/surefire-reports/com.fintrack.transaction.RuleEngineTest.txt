@@ -1,18 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.fintrack.transaction.RuleEngineTest
 -------------------------------------------------------------------------------
-Tests run: 5, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 2.172 s <<< FAILURE! -- in com.fintrack.transaction.RuleEngineTest
-com.fintrack.transaction.RuleEngineTest.evaluate_aboveAmlThreshold_shouldFlag -- Time elapsed: 2.051 s <<< FAILURE!
-org.opentest4j.AssertionFailedError: 
-
-expected: FLAGGED
- but was: ENRICHING
-	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
-	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:77)
-	at java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
-	at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:499)
-	at com.fintrack.transaction.RuleEngineTest.evaluate_aboveAmlThreshold_shouldFlag(RuleEngineTest.java:75)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.406 s -- in com.fintrack.transaction.RuleEngineTest

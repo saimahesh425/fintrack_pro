@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: compliance-service
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: compliance-processor
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+server:
+  port: 8085
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
+logging:
+  level:
+    com.fintrack: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: aws
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}

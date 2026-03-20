@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import java.util.concurrent.CompletableFuture;
 
 import java.io.StringWriter;
 import java.time.Instant;
@@ -33,7 +34,9 @@ public class ReportService {
         jobs.put(jobId, job);
 
         // Generate asynchronously
-        Thread.ofVirtual().start(() -> generateReport(jobId, request));
+//        Thread.ofVirtual().start(() -> generateReport(jobId, request));
+
+        new Thread(() -> generateReport(jobId, request)).start();
 
         log.info("Report job created jobId={} type={}", jobId, request.getType());
         return job;

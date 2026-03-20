@@ -1,37 +1,31 @@
 spring:
-  profiles:
-    active: test
   datasource:
     url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
+
   jpa:
     hibernate:
       ddl-auto: create-drop
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
-  kafka:
-    bootstrap-servers: localhost:9092
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+  # 🔥 DISABLE REDIS COMPLETELY
   data:
     redis:
-      host: localhost
-      port: 6379
-  security:
-    jwt:
-      secret: "test-secret-key-min-256-bits-long-for-testing-only"
-      expiration-ms: 86400000
+      repositories:
+        enabled: false
+
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
-      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
 
 server:
-  port: 0   # Random port for tests
+  port: 0
+
+# REQUIRED CONFIG
+app:
+  cors:
+    allowed-origins: "*"
 
 rules:
   aml:
@@ -47,4 +41,3 @@ rules:
 logging:
   level:
     com.fintrack: WARN
-    org.springframework: WARN

@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: report-service
+
+server:
+  port: 8084
+
+app:
+  transaction-service-url: http://localhost:8081
+  cors:
+    allowed-origins: "http://localhost:4200"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
+logging:
+  level:
+    com.fintrack: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: aws
+app:
+  transaction-service-url: ${TRANSACTION_SERVICE_URL}
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS}

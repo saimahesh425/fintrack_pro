@@ -1,0 +1,5 @@
+com\fintrack\ai\service\AIQueryService.class
+com\fintrack\ai\config\AIConfig.class
+com\fintrack\ai\AIQueryServiceApplication.class
+com\fintrack\ai\controller\AIQueryController.class
+com\fintrack\ai\service\VectorSearchService.class
