@@ -10,7 +10,7 @@ server:
 ai:
   openai:
     enabled: true
-    api-key: ${OPENAI_API_KEY}
+    api-key:    # ✅ FIXED HERE
     base-url: https://api.openai.com/v1
     model: gpt-4o-mini
 
@@ -54,10 +54,11 @@ spring:
     host: localhost
     port: 6379
 
-ai:
-  openai:
-    api-key: ${OPENAI_API_KEY}
-
 app:
   cors:
-    allowed-origins: ${ALLOWED_ORIGINS}
+    allowed-origins: "*"
+
+ai:
+  openai:
+    api-key: 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
+    base-url: https://api.openai.com/v1

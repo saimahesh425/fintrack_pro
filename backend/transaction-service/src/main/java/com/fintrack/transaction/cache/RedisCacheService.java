@@ -1,6 +1,6 @@
 package com.fintrack.transaction.cache;
 
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -8,11 +8,17 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 
 @Service
-@RequiredArgsConstructor
-@Profile("!test")   // ❗ Disabled in tests
-public class RedisCacheService implements com.fintrack.transaction.cache.CacheService {
+@Profile("!test")
+public class RedisCacheService implements CacheService {
 
     private final RedisTemplate<String, String> redis;
+
+    // ✅ MANUAL CONSTRUCTOR (IMPORTANT)
+    public RedisCacheService(
+            @Qualifier("redisTemplate") RedisTemplate<String, String> redis
+    ) {
+        this.redis = redis;
+    }
 
     @Override
     public String get(String key) {

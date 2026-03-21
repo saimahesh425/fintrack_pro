@@ -12,8 +12,9 @@ public class AIConfig {
 
     @Bean
     public WebClient openAiClient(
-            @Value("${ai.openai.api-key:sk-demo}") String apiKey,
+            @Value("${ai.openai.api-key:dummy-key}") String apiKey,
             @Value("${ai.openai.base-url:https://api.openai.com/v1}") String baseUrl) {
+
         return WebClient.builder()
                 .baseUrl(baseUrl)
                 .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)

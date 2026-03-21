@@ -26,7 +26,7 @@ public class TransactionService {
 
     private final TransactionRepository repository;
     private final RuleEngine ruleEngine;
-    @MockBean
+//    @MockBean
     private KafkaEventPublisher kafkaPublisher;
     private final CacheService cacheService;   // ✅ replaced RedisTemplate
 

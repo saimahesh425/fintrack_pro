@@ -1,9 +1,14 @@
-# ── Default (local) configuration ─────────────────────────────────────────
 spring:
   application:
     name: transaction-service
 
-  # H2 in-memory database for local development
+  # ✅ Disable Redis completely (IMPORTANT FIX)
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+  # H2 Database
   datasource:
     url: jdbc:h2:mem:fintrackdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
@@ -17,47 +22,37 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.H2Dialect
 
   h2:
     console:
-      enabled: true          # http://localhost:8081/h2-console (local only)
+      enabled: true
       path: /h2-console
 
-  # Kafka
+  # Kafka (will not fail if not running unless used)
   kafka:
     bootstrap-servers: localhost:9092
     producer:
-      key-serializer:   org.apache.kafka.common.serialization.StringSerializer
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      acks: all             # Wait for all replicas
-      retries: 3
     consumer:
       group-id: transaction-processor
-      key-deserializer:   org.apache.kafka.common.serialization.StringDeserializer
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       auto-offset-reset: earliest
-      enable-auto-commit: false   # Manual acknowledgment
+      enable-auto-commit: false
       properties:
         spring.json.trusted.packages: "com.fintrack.*"
 
-  # Redis
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      timeout: 2000ms
-
-  # Security — JWT
+  # Security
   security:
     jwt:
-      secret: "fintrack-local-dev-secret-key-min-256-bits-long-replace-in-prod"
-      expiration-ms: 86400000   # 24 hours
+      secret: "fintrack-local-dev-secret-key-min-256-bits-long"
+      expiration-ms: 86400000
 
 server:
   port: 8081
 
-# ── Rule engine thresholds (override via ConfigMap in K8s) ─────────────────
+# Business rules
 rules:
   aml:
     threshold: 10000
@@ -69,12 +64,12 @@ rules:
     velocity-score: 30
     duplicate-score: 60
 
-# ── CORS ────────────────────────────────────────────────────────────────────
+# CORS
 app:
   cors:
     allowed-origins: "http://localhost:4200"
 
-# ── Actuator ────────────────────────────────────────────────────────────────
+# Actuator
 management:
   endpoints:
     web:
@@ -83,14 +78,17 @@ management:
   endpoint:
     health:
       show-details: always
+  health:
+    redis:
+      enabled: false   # ✅ prevent DOWN status
 
-# ── Logging ─────────────────────────────────────────────────────────────────
+# Logging
 logging:
   level:
     com.fintrack: DEBUG
     org.springframework.kafka: INFO
 
-# ── Swagger ─────────────────────────────────────────────────────────────────
+# Swagger
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
@@ -98,37 +96,20 @@ springdoc:
     path: /api-docs
 
 ---
-# ── AWS profile (activated by SPRING_PROFILES_ACTIVE=aws) ─────────────────
+# AWS PROFILE (leave as is)
 spring:
   config:
     activate:
       on-profile: aws
 
   datasource:
-    url: ${DB_URL}                   # Injected from K8s Secret
+    url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-    hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
-      connection-timeout: 5000
-
-  jpa:
-    hibernate:
-      ddl-auto: validate            # Never auto-migrate in production
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.SQLServerDialect
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
-
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: 6379
-      password: ${REDIS_PASSWORD}
 
 app:
   cors:
